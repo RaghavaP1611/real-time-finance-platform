@@ -2,6 +2,7 @@ package com.raghava.transactionservice.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.raghava.transactionservice.dto.TransactionRequest;
+import com.raghava.transactionservice.dto.TransactionResponse;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,13 +32,21 @@ public class TransactionController {
     }
 
     @PostMapping
-    public ResponseEntity<Void> create(@Valid @RequestBody TransactionRequest req) throws Exception {
+    public ResponseEntity<TransactionResponse> create(@Valid @RequestBody TransactionRequest req) throws Exception {
+
         log.info("Publishing transactionId={} userId={} amount={} currency={} to topic={}",
                 req.getTransactionId(), req.getUserId(), req.getAmount(), req.getCurrency(), topic);
 
+        // Convert DTO -> JSON string (Kafka message value)
         String json = objectMapper.writeValueAsString(req);
+
+        // Publish event to Kafka
         kafkaTemplate.send(topic, req.getTransactionId(), json);
 
-        return ResponseEntity.accepted().build();
+        // Return 202 + response body (JSON)
+        TransactionResponse response =
+                new TransactionResponse(req.getTransactionId(), "ACCEPTED", topic);
+
+        return ResponseEntity.accepted().body(response);
     }
 }
